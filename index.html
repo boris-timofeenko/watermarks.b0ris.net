@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SynthID Killer — локальный санитайзер картинок</title>
+<style>
+:root{ color-scheme: dark }
+*{ box-sizing:border-box }
+body{ margin:0 auto; max-width:960px; font:14px/1.5 -apple-system,system-ui,"Segoe UI",sans-serif; background:#101214; color:#d8dce0; padding:0 16px 60px }
+h1{ font-size:18px; margin:28px 0 4px }
+.sub{ color:#8a929a; margin:0 0 20px; font-size:13px }
+#drop{ border:1.5px dashed #3a4148; border-radius:10px; padding:38px 20px; text-align:center; color:#8a929a; cursor:pointer; transition:border-color .15s,color .15s }
+#drop.over{ border-color:#5af78e; color:#5af78e }
+#drop b{ color:#d8dce0 }
+input[type=file]{ display:none }
+.grid{ display:grid; grid-template-columns:280px 1fr; gap:20px; margin-top:20px; align-items:start }
+@media(max-width:760px){ .grid{ grid-template-columns:1fr } }
+.panel{ background:#171a1d; border:1px solid #262b30; border-radius:10px; padding:14px 16px }
+label{ display:block; margin:10px 0 2px; font-size:12px; color:#9aa3ab }
+.val{ float:right; color:#5af78e; font-variant-numeric:tabular-nums }
+input[type=range]{ width:100%; accent-color:#2ea765 }
+.presets{ display:flex; gap:8px; margin:2px 0 4px }
+button{ background:#22272b; color:#d8dce0; border:1px solid #33393f; border-radius:8px; padding:6px 10px; cursor:pointer; font-size:13px }
+button:hover{ border-color:#5af78e; color:#5af78e }
+button.primary{ background:#173d2a; border-color:#2ea765; color:#7ef0ae }
+button.primary[disabled]{ opacity:.35; pointer-events:none }
+#compare{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
+#compare[hidden]{ display:none }
+figure{ margin:0 }
+figcaption{ font-size:12px; color:#8a929a; margin-bottom:6px }
+canvas.view{ width:100%; border-radius:8px; background:#0a0c0d; cursor:crosshair }
+.loupes{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px }
+.loupe{ width:100%; aspect-ratio:1; border-radius:8px; background:#0a0c0d; border:1px solid #262b30 }
+#stats{ margin-top:14px; font-size:13px; color:#9aa3ab }
+#stats b{ color:#d8dce0; font-variant-numeric:tabular-nums; font-weight:600 }
+#batch{ margin-top:10px; display:flex; flex-direction:column; gap:6px }
+.batch-item{ display:flex; justify-content:space-between; gap:10px; font-size:13px; background:#171a1d; border:1px solid #262b30; padding:8px 12px; border-radius:8px }
+.batch-item a{ color:#7ef0ae }
+.batch-item .err{ color:#f0705a }
+details{ margin-top:26px; background:#171a1d; border:1px solid #262b30; border-radius:10px; padding:12px 16px }
+details summary{ cursor:pointer; color:#d8dce0 }
+details ul{ padding-left:18px }
+details li{ margin:6px 0 }
+code{ background:#0a0c0d; padding:1px 6px; border-radius:5px; font-size:12px }
+</style>
+</head>
+<body>
+
+<h1>SynthID Killer</h1>
+<p class="sub">Локальная перезапись пикселей: сносит пиксельные водяные знаки и срезает все метаданные (C2PA / EXIF / XMP).
+Офлайн, без моделей, ничего никуда не отправляется.</p>
+
+<div id="drop"><b>Перетащи картинку</b> или кликни, чтобы выбрать.<br>Ещё работает вставка из буфера (⌘V). Можно несколько сразу.</div>
+<input type="file" id="file" accept="image/*" multiple>
+
+<div class="grid">
+  <div class="panel">
+    <div class="presets">
+      <button data-preset="gentle">Бережно</button>
+      <button data-preset="normal">Штатный</button>
+      <button data-preset="nuke">Термоядерный</button>
+    </div>
+    <label>Масштаб (даунскейл-раундтрип) <span class="val" id="scaleV"></span></label>
+    <input type="range" id="scale" min="50" max="100" step="1">
+    <label>Микроповорот, ° <span class="val" id="rotV"></span></label>
+    <input type="range" id="rot" min="0" max="1" step="0.05">
+    <label>Шум, ± уровней <span class="val" id="noiseV"></span></label>
+    <input type="range" id="noise" min="0" max="5" step="1">
+    <label>DCT-шаг (переквантование 8×8) <span class="val" id="dctV"></span></label>
+    <input type="range" id="dct" min="0" max="10" step="1">
+    <label>Качество JPEG/WebP <span class="val" id="qV"></span></label>
+    <input type="range" id="q" min="60" max="100" step="1">
+    <label>Формат</label>
+    <select id="fmt" style="width:100%;background:#22272b;color:#d8dce0;border:1px solid #33393f;border-radius:8px;padding:6px">
+      <option value="image/jpeg">JPEG (рекомендуется)</option>
+      <option value="image/webp">WebP</option>
+      <option value="image/png">PNG (прозрачность сохранится)</option>
+    </select>
+    <p style="font-size:12px;color:#8a929a;margin:12px 0 0">JPEG/WebP заливает прозрачность. Чем ниже масштаб и выше шум — тем надёжнее снос и хуже картинка.</p>
+  </div>
+
+  <div>
+    <div id="compare" hidden>
+      <figure>
+        <figcaption>оригинал</figcaption>
+        <canvas id="orig" class="view"></canvas>
+      </figure>
+      <figure>
+        <figcaption>после</figcaption>
+        <canvas id="out" class="view"></canvas>
+      </figure>
+    </div>
+    <div class="loupes" hidden id="loupes">
+      <figure><figcaption>лупа оригинал ×8</figcaption><canvas id="loupeOrig" class="loupe" width="224" height="224"></canvas></figure>
+      <figure><figcaption>лупа после ×8</figcaption><canvas id="loupeOut" class="loupe" width="224" height="224"></canvas></figure>
+    </div>
+    <div id="stats"></div>
+    <p style="margin-top:12px"><button class="primary" id="download" disabled>Скачать</button></p>
+    <div id="batch"></div>
+  </div>
+</div>
+
+<details>
+  <summary>Как это работает и что проверять по-настоящему</summary>
+  <ul>
+    <li><b>Даунскейл с микроповоротом и грубым кернелом.</b> Каждый пиксель результата — взвешенное среднее соседей, сетка сдвинута на долю градуса. Пространственная структура водяного знака перемешивается.</li>
+    <li><b>Апскейл обратно другим кернелом</b> (высокого качества). Обратной дороги к исходным пикселям нет: значение каждого пикселя получено заново.</li>
+    <li><b>DCT-переквантование 8×8.</b> ВЧ-коэффициенты округляются к крупной сетке — остатки высокочастотного сигнала обнуляются, при малом шаге это почти невидимо.</li>
+    <li><b>Независимый шум ±N в каждый канал.</b> Статистика младших битов — основа любой попиксельной стеганографии — перестаёт существовать.</li>
+    <li><b>JPEG-перекодирование</b> — финальное перемешивание. Заодно <b>срезаются все метаданные</b> (C2PA, EXIF, XMP): canvas их просто не переносит. Плашка «Made with AI» в X/Twitter ставится именно по C2PA-метаданным — она пропадает гарантированно.</li>
+    <li>Проверка метаданных: <code>contentcredentials.org/verify</code>. Проверка пиксельного SynthID: детектор DeepMind (по заявке) — гонять до/после. Локального SynthID-детектора не существует, поэтому честная гарантия по пикселям такая: сигнал не survived невозможен, если каждый пиксель заменён на значение, не зависящее от исходных младших битов.</li>
+  </ul>
+</details>
+
+<script>
+'use strict';
+// [CORE]
+// Чистая математика без DOM: тот же код гоняется тестами в Node.
+
+// Независимый равномерный шум ±amp в каждый RGB-канал каждого пикселя. Альфу не трогаем.
+function addNoise(data, amp){
+  amp = Math.round(amp);
+  if(amp <= 0) return false;
+  for(let i = 0; i < data.length; i += 4){
+    data[i]     = data[i]     + (Math.floor(Math.random() * (2*amp + 1)) - amp);
+    data[i + 1] = data[i + 1] + (Math.floor(Math.random() * (2*amp + 1)) - amp);
+    data[i + 2] = data[i + 2] + (Math.floor(Math.random() * (2*amp + 1)) - amp);
+  }
+  return true;
+}
+
+// Ортонормальная матрица DCT-II 8x8: T8[u*8+x] = a(u) * cos((2x+1)u*pi/16)
+const T8 = new Float64Array(64);
+{
+  const a0 = Math.sqrt(1/8), an = Math.sqrt(2/8);
+  for(let u = 0; u < 8; u++){
+    const a = u === 0 ? a0 : an;
+    for(let x = 0; x < 8; x++){
+      T8[u*8 + x] = a * Math.cos((2*x + 1) * u * Math.PI / 16);
+    }
+  }
+}
+
+// Прямое/обратное 8x8-преобразование блока (row-major: block[x*8+y], x — строка).
+// Блок и tmp можно передавать переиспользуемые.
+function blockDCT(block, tmp, inv){
+  if(!inv){
+    // tmp[u*8+y] = сумма по x T8[u][x] * block[x][y]
+    for(let u = 0; u < 8; u++) for(let y = 0; y < 8; y++){
+      let s = 0;
+      for(let x = 0; x < 8; x++) s += T8[u*8 + x] * block[x*8 + y];
+      tmp[u*8 + y] = s;
+    }
+    // block[u*8+v] = сумма по y tmp[u][y] * T8[v][y]
+    for(let u = 0; u < 8; u++) for(let v = 0; v < 8; v++){
+      let s = 0;
+      for(let y = 0; y < 8; y++) s += tmp[u*8 + y] * T8[v*8 + y];
+      block[u*8 + v] = s;
+    }
+  } else {
+    // tmp[u*8+y] = сумма по v block[u][v] * T8[v][y]
+    for(let u = 0; u < 8; u++) for(let y = 0; y < 8; y++){
+      let s = 0;
+      for(let v = 0; v < 8; v++) s += block[u*8 + v] * T8[v*8 + y];
+      tmp[u*8 + y] = s;
+    }
+    // block[x*8+y] = сумма по u T8[u][x] * tmp[u][y]
+    for(let x = 0; x < 8; x++) for(let y = 0; y < 8; y++){
+      let s = 0;
+      for(let u = 0; u < 8; u++) s += T8[u*8 + x] * tmp[u*8 + y];
+      block[x*8 + y] = s;
+    }
+  }
+}
+
+// Переквантование ВЧ-коэффициентов DCT в блоках 8x8 по каналам RGB.
+// DC (i=0) не трогаем, AC округляем к сетке step: мелочь исчезает, контур живёт.
+// step=0 — выключено.
+function dctWipe(data, w, h, step){
+  if(!step || step <= 0) return false;
+  const block = new Float64Array(64);
+  const tmp   = new Float64Array(64);
+  const bw = Math.ceil(w/8), bh = Math.ceil(h/8);
+  for(let ch = 0; ch < 3; ch++){
+    for(let by = 0; by < bh; by++){
+      for(let bx = 0; bx < bw; bx++){
+        // читаем блок с зажимом координат (replicate edge)
+        for(let r = 0; r < 8; r++){
+          const sy = Math.min(h - 1, by*8 + r);
+          for(let c = 0; c < 8; c++){
+            const sx = Math.min(w - 1, bx*8 + c);
+            block[r*8 + c] = data[(sy*w + sx)*4 + ch];
+          }
+        }
+        blockDCT(block, tmp, false);
+        for(let i = 1; i < 64; i++){
+          block[i] = Math.round(block[i]/step) * step;
+        }
+        blockDCT(block, tmp, true);
+        for(let r = 0; r < 8; r++){
+          const sy = by*8 + r;
+          if(sy >= h) break;
+          for(let c = 0; c < 8; c++){
+            const sx = bx*8 + c;
+            if(sx >= w) break;
+            data[(sy*w + sx)*4 + ch] = block[r*8 + c];
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+
+function psnr(a, b){
+  let se = 0;
+  const n = Math.min(a.length, b.length);
+  for(let i = 0; i < n; i++){
+    const d = a[i] - b[i];
+    se += d*d;
+  }
+  if(n === 0) return NaN;
+  return se === 0 ? Infinity : 10 * Math.log10(255*255*n / se);
+}
+
+function pctChanged(a, b){
+  let n = 0;
+  const t = Math.min(a.length, b.length);
+  for(let i = 0; i < t; i++) if(a[i] !== b[i]) n++;
+  return t ? n / t * 100 : 0;
+}
+// [/CORE]
+
+// ---------- пайплайн ----------
+// 1) даунскейл с микроповоротом и ГРУБОЙ интерполяцией — каждый пиксель пересобирается
+// 2) апскейл ДРУГИМ кернелом (высокое качество)
+// 3) DCT-переквантование  4) шум  → канвас готов, остаётся закодировать
+function processTo(bitmap, canvas, p){
+  const w = bitmap.width, h = bitmap.height;
+  const ang = (p.rot || 0) * Math.PI / 180;
+  const cover = 1 / Math.max(0.999, Math.cos(ang)); // чтобы поворот не оставил углы
+  const sw = Math.max(16, Math.round(w * p.scale * cover));
+  const sh = Math.max(16, Math.round(h * p.scale * cover));
+
+  const s = document.createElement('canvas');
+  s.width = sw; s.height = sh;
+  const sc = s.getContext('2d');
+  sc.imageSmoothingEnabled = true;
+  sc.imageSmoothingQuality = 'low'; // грубый кернел на даунскейле — сильнее перемешивает
+  sc.fillStyle = '#7f7f7f'; sc.fillRect(0, 0, sw, sh);
+  sc.translate(sw/2, sh/2);
+  sc.rotate(ang);
+  sc.drawImage(bitmap, -sw/2, -sh/2, sw, sh);
+
+  canvas.width = w; canvas.height = h;
+  const oc = canvas.getContext('2d', { willReadFrequently: true });
+  oc.imageSmoothingEnabled = true;
+  oc.imageSmoothingQuality = 'high';
+  oc.clearRect(0, 0, w, h);
+  oc.drawImage(s, 0, 0, w, h);
+
+  const img = oc.getImageData(0, 0, w, h);
+  dctWipe(img.data, w, h, p.dct);
+  addNoise(img.data, p.noise);
+  oc.putImageData(img, 0, 0);
+  return img.data;
+}
+
+// ---------- UI ----------
+const $ = s => document.querySelector(s);
+const drop = $('#drop'), fileInput = $('#file');
+const sliders = { scale: $('#scale'), rot: $('#rot'), noise: $('#noise'), dct: $('#dct'), q: $('#q') };
+const vals = { scale: $('#scaleV'), rot: $('#rotV'), noise: $('#noiseV'), dct: $('#dctV'), q: $('#qV') };
+const origCanvas = $('#orig'), outCanvas = $('#out');
+
+const PRESETS = {
+  gentle: { scale: 92, rot: 0,    noise: 1, dct: 0, q: 92 },
+  normal: { scale: 78, rot: 0.1,  noise: 2, dct: 3, q: 88 },
+  nuke:   { scale: 50, rot: 0.35, noise: 3, dct: 6, q: 78 },
+};
+
+let active = null; // { bitmap, origData, name, size }
+let timer = null;
+
+function fmtBytes(n){
+  return n > 1048576 ? (n/1048576).toFixed(1) + ' МБ' : Math.round(n/1024) + ' КБ';
+}
+function fmtPSNR(p){ return p === Infinity ? '∞' : p.toFixed(1) + ' dB'; }
+function esc(s){ return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function syncVals(){
+  for(const k in sliders){
+    vals[k].textContent = sliders[k].value;
+  }
+}
+function getParams(){
+  return {
+    scale: sliders.scale.value / 100,
+    rot: +sliders.rot.value,
+    noise: +sliders.noise.value,
+    dct: +sliders.dct.value,
+    q: +sliders.q.value,
+  };
+}
+function applyPreset(p){
+  for(const k in p) sliders[k].value = p[k];
+  syncVals();
+  scheduleRun();
+}
+document.querySelectorAll('[data-preset]').forEach(b =>
+  b.addEventListener('click', () => applyPreset(PRESETS[b.dataset.preset])));
+
+for(const k in sliders) sliders[k].addEventListener('input', () => { syncVals(); scheduleRun(); });
+
+function scheduleRun(){
+  clearTimeout(timer);
+  timer = setTimeout(run, 150);
+}
+
+function run(){
+  if(!active) return;
+  const t0 = performance.now();
+  const outData = processTo(active.bitmap, outCanvas, getParams());
+  const ms = performance.now() - t0;
+  const p10 = psnr(active.origData, outData);
+  const changed = pctChanged(active.origData, outData);
+  $('#stats').innerHTML =
+    `Размер <b>${outCanvas.width}×${outCanvas.height}</b> · ` +
+    `PSNR <b>${fmtPSNR(p10)}</b> · ` +
+    `пикселей изменено <b>${changed.toFixed(1)}%</b> · ` +
+    `<b>${fmtBytes(active.size)}</b> → <b id="outSize">…</b> · за <b>${ms < 1 ? '<1' : Math.round(ms)} мс</b>`;
+  $('#download').disabled = false;
+  exportBlob(b => { if(b) $('#outSize').textContent = fmtBytes(b.size); });
+}
+
+function exportBlob(cb){
+  const fmt = $('#fmt').value;
+  outCanvas.toBlob(b => cb(b), fmt, +sliders.q.value / 100);
+}
+
+$('#download').addEventListener('click', () => {
+  if(!active) return;
+  exportBlob(b => {
+    if(!b) return;
+    const url = URL.createObjectURL(b);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = active.name.replace(/\.\w+$/, '') + '-clean.' + b.type.split('/')[1];
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  });
+});
+
+// лупы
+function hookLoupe(cv){
+  cv.addEventListener('pointermove', e => {
+    if(!active) return;
+    const r = cv.getBoundingClientRect();
+    const cx = (e.clientX - r.left) / r.width * cv.width;
+    const cy = (e.clientY - r.top) / r.height * cv.height;
+    drawLoupe($('#loupeOrig'), origCanvas, cx, cy);
+    drawLoupe($('#loupeOut'), outCanvas, cx, cy);
+  });
+}
+function drawLoupe(cv, src, cx, cy){
+  const R = 14;
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#0a0c0d'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(src, cx - R/2, cy - R/2, R, R, 0, 0, cv.width, cv.height);
+}
+hookLoupe(origCanvas); hookLoupe(outCanvas);
+
+// загрузка
+async function loadFile(file){
+  const bitmap = await createImageBitmap(file);
+  origCanvas.width = bitmap.width; origCanvas.height = bitmap.height;
+  const oc = origCanvas.getContext('2d', { willReadFrequently: true });
+  oc.imageSmoothingEnabled = true;
+  oc.drawImage(bitmap, 0, 0);
+  active = {
+    bitmap,
+    origData: oc.getImageData(0, 0, bitmap.width, bitmap.height).data,
+    name: file.name,
+    size: file.size,
+  };
+  $('#compare').hidden = false;
+  $('#loupes').hidden = false;
+  run();
+}
+
+// пакет: все выбранные файлы обрабатываются текущими настройками
+async function batch(files){
+  const list = $('#batch');
+  for(const f of files){
+    const item = document.createElement('div');
+    item.className = 'batch-item';
+    item.innerHTML = `<span>${esc(f.name)} …</span>`;
+    list.appendChild(item);
+    try{
+      const bm = await createImageBitmap(f);
+      // оригинал нужен только ради метрик
+      const o = document.createElement('canvas');
+      o.width = bm.width; o.height = bm.height;
+      const octx = o.getContext('2d', { willReadFrequently: true });
+      octx.drawImage(bm, 0, 0);
+      const origData = octx.getImageData(0, 0, o.width, o.height).data;
+
+      const c = document.createElement('canvas');
+      const outData = processTo(bm, c, getParams());
+      const fmt = $('#fmt').value;
+      const blob = await new Promise(r => c.toBlob(r, fmt, +sliders.q.value / 100));
+      const url = URL.createObjectURL(blob);
+      const name = f.name.replace(/\.\w+$/, '') + '-clean.' + blob.type.split('/')[1];
+      item.innerHTML = `<span>${esc(f.name)} → <a href="${url}" download="${esc(name)}">скачать</a> ` +
+        `<small style="color:#8a929a">PSNR ${fmtPSNR(psnr(origData, outData))}</small></span>` +
+        `<span>${fmtBytes(blob.size)}</span>`;
+      bm.close && bm.close();
+    } catch(err){
+      item.innerHTML = `<span>${esc(f.name)}</span><span class="err">ошибка: ${esc(String(err))}</span>`;
+    }
+  }
+}
+
+function handleFiles(files){
+  const imgs = [...files].filter(f => f.type.startsWith('image/'));
+  if(!imgs.length) return;
+  loadFile(imgs[0]);
+  if(imgs.length > 1) batch(imgs);
+}
+
+drop.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => { handleFiles(fileInput.files); fileInput.value = ''; });
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+window.addEventListener('paste', e => {
+  if(e.clipboardData && e.clipboardData.files.length) handleFiles(e.clipboardData.files);
+});
+
+// стартовые настройки: штатный пресет
+applyPreset(PRESETS.normal);
+
+// самотест для автоматизации: ?selftest генерирует синтетическую картинку и прогоняет пайплайн
+if(new URLSearchParams(location.search).has('selftest')){
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 768;
+  const g = c.getContext('2d');
+  const grd = g.createLinearGradient(0, 0, 1024, 768);
+  grd.addColorStop(0, '#20304a'); grd.addColorStop(1, '#7a5a3a');
+  g.fillStyle = grd; g.fillRect(0, 0, 1024, 768);
+  for(let i = 0; i < 40; i++){
+    g.fillStyle = `hsl(${Math.random()*360},60%,${30 + Math.random()*40}%)`;
+    g.beginPath();
+    g.arc(Math.random()*1024, Math.random()*768, 20 + Math.random()*120, 0, 7);
+    g.fill();
+  }
+  const id = g.getImageData(0, 0, 1024, 768);
+  for(let i = 0; i < id.data.length; i += 4){
+    const n = (Math.random()*8 - 4) | 0;
+    id.data[i] += n; id.data[i+1] += n; id.data[i+2] += n;
+  }
+  g.putImageData(id, 0, 0);
+  c.toBlob(b => handleFiles([new File([b], 'selftest.png', { type: 'image/png' })]), 'image/png');
+}
+</script>
+</body>
+</html>
