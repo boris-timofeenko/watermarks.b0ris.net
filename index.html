@@ -7,33 +7,46 @@
 <style>
 :root{ color-scheme: dark }
 *{ box-sizing:border-box }
-body{ margin:0 auto; max-width:960px; font:14px/1.5 -apple-system,system-ui,"Segoe UI",sans-serif; background:#101214; color:#d8dce0; padding:0 16px 60px }
+body{ margin:0 auto; max-width:1020px; font:14px/1.5 -apple-system,system-ui,"Segoe UI",sans-serif; background:#101214; color:#d8dce0; padding:0 16px 60px }
 h1{ font-size:18px; margin:28px 0 4px }
 .sub{ color:#8a929a; margin:0 0 20px; font-size:13px }
-#drop{ border:1.5px dashed #3a4148; border-radius:10px; padding:38px 20px; text-align:center; color:#8a929a; cursor:pointer; transition:border-color .15s,color .15s }
+#drop{ border:1.5px dashed #3a4148; border-radius:10px; padding:30px 20px; text-align:center; color:#8a929a; cursor:pointer; transition:border-color .15s,color .15s }
 #drop.over{ border-color:#5af78e; color:#5af78e }
 #drop b{ color:#d8dce0 }
 input[type=file]{ display:none }
-.grid{ display:grid; grid-template-columns:280px 1fr; gap:20px; margin-top:20px; align-items:start }
-@media(max-width:760px){ .grid{ grid-template-columns:1fr } }
+.grid{ display:grid; grid-template-columns:330px 1fr; gap:20px; margin-top:20px; align-items:start }
+@media(max-width:800px){ .grid{ grid-template-columns:1fr } }
 .panel{ background:#171a1d; border:1px solid #262b30; border-radius:10px; padding:14px 16px }
-label{ display:block; margin:10px 0 2px; font-size:12px; color:#9aa3ab }
-.val{ float:right; color:#5af78e; font-variant-numeric:tabular-nums }
-input[type=range]{ width:100%; accent-color:#2ea765 }
-.presets{ display:flex; gap:8px; margin:2px 0 4px }
+.presets{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:4px }
 button{ background:#22272b; color:#d8dce0; border:1px solid #33393f; border-radius:8px; padding:6px 10px; cursor:pointer; font-size:13px }
 button:hover{ border-color:#5af78e; color:#5af78e }
 button.primary{ background:#173d2a; border-color:#2ea765; color:#7ef0ae }
 button.primary[disabled]{ opacity:.35; pointer-events:none }
+#stages fieldset{ border:1px solid #262b30; border-radius:8px; margin:10px 0 0; padding:8px 12px 10px; opacity:.55 }
+#stages fieldset.on{ opacity:1; border-color:#3a4148 }
+#stages .stagehead{ display:flex; align-items:center; gap:8px; font-size:13.5px; color:#d8dce0; margin:2px 0 0; cursor:pointer }
+#stages .stagehead input{ accent-color:#2ea765; width:15px; height:15px }
+#stages .hint{ font-size:11.5px; color:#78828a; margin:3px 0 2px }
+#stages .param{ display:grid; grid-template-columns:120px 1fr; gap:8px; align-items:center; margin-top:7px; display:none }
+#stages fieldset.on .param{ display:grid }
+#stages label{ margin:0; font-size:12px; color:#9aa3ab }
+#stages select{ background:#22272b; color:#d8dce0; border:1px solid #33393f; border-radius:7px; padding:4px 6px; font-size:12.5px; width:100% }
+input[type=range]{ width:100%; accent-color:#2ea765 }
+.val{ float:right; color:#5af78e; font-variant-numeric:tabular-nums }
+label.inline{ display:block; margin:10px 0 2px; font-size:12px; color:#9aa3ab }
+select.fmt{ width:100%; background:#22272b; color:#d8dce0; border:1px solid #33393f; border-radius:8px; padding:6px }
+.note{ font-size:12px; color:#8a929a; margin:12px 0 0 }
 #compare{ display:grid; grid-template-columns:1fr 1fr; gap:12px }
 #compare[hidden]{ display:none }
 figure{ margin:0 }
 figcaption{ font-size:12px; color:#8a929a; margin-bottom:6px }
 canvas.view{ width:100%; border-radius:8px; background:#0a0c0d; cursor:crosshair }
 .loupes{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px }
+.loupes[hidden]{ display:none }
 .loupe{ width:100%; aspect-ratio:1; border-radius:8px; background:#0a0c0d; border:1px solid #262b30 }
 #stats{ margin-top:14px; font-size:13px; color:#9aa3ab }
 #stats b{ color:#d8dce0; font-variant-numeric:tabular-nums; font-weight:600 }
+#stats .err{ color:#f0705a }
 #batch{ margin-top:10px; display:flex; flex-direction:column; gap:6px }
 .batch-item{ display:flex; justify-content:space-between; gap:10px; font-size:13px; background:#171a1d; border:1px solid #262b30; padding:8px 12px; border-radius:8px }
 .batch-item a{ color:#7ef0ae }
@@ -49,7 +62,7 @@ code{ background:#0a0c0d; padding:1px 6px; border-radius:5px; font-size:12px }
 
 <h1>SynthID Killer</h1>
 <p class="sub">Локальная перезапись пикселей: сносит пиксельные водяные знаки и срезает все метаданные (C2PA / EXIF / XMP).
-Офлайн, без моделей, ничего никуда не отправляется.</p>
+Веса ничего не отправляют: всё считается в браузере. Стадии конвейера включаются и настраиваются по отдельности.</p>
 
 <div id="drop"><b>Перетащи картинку</b> или кликни, чтобы выбрать.<br>Ещё работает вставка из буфера (⌘V). Можно несколько сразу.</div>
 <input type="file" id="file" accept="image/*" multiple>
@@ -60,24 +73,18 @@ code{ background:#0a0c0d; padding:1px 6px; border-radius:5px; font-size:12px }
       <button data-preset="gentle">Бережно</button>
       <button data-preset="normal">Штатный</button>
       <button data-preset="nuke">Термоядерный</button>
+      <button data-preset="ml">ML-горлышко</button>
     </div>
-    <label>Масштаб (даунскейл-раундтрип) <span class="val" id="scaleV"></span></label>
-    <input type="range" id="scale" min="50" max="100" step="1">
-    <label>Микроповорот, ° <span class="val" id="rotV"></span></label>
-    <input type="range" id="rot" min="0" max="1" step="0.05">
-    <label>Шум, ± уровней <span class="val" id="noiseV"></span></label>
-    <input type="range" id="noise" min="0" max="5" step="1">
-    <label>DCT-шаг (переквантование 8×8) <span class="val" id="dctV"></span></label>
-    <input type="range" id="dct" min="0" max="10" step="1">
-    <label>Качество JPEG/WebP <span class="val" id="qV"></span></label>
-    <input type="range" id="q" min="60" max="100" step="1">
-    <label>Формат</label>
-    <select id="fmt" style="width:100%;background:#22272b;color:#d8dce0;border:1px solid #33393f;border-radius:8px;padding:6px">
+    <div id="stages"></div>
+    <label class="inline">Формат на выходе</label>
+    <select class="fmt" id="fmt">
       <option value="image/jpeg">JPEG (рекомендуется)</option>
       <option value="image/webp">WebP</option>
       <option value="image/png">PNG (прозрачность сохранится)</option>
     </select>
-    <p style="font-size:12px;color:#8a929a;margin:12px 0 0">JPEG/WebP заливает прозрачность. Чем ниже масштаб и выше шум — тем надёжнее снос и хуже картинка.</p>
+    <label class="inline">Качество финального кодирования <span class="val" id="exqV"></span></label>
+    <input type="range" id="exq" min="60" max="100" step="1" value="88">
+    <p class="note">JPEG/WebP заливает прозрачность. Порядок стадий фиксированный: геометрия → WebP → постеризация → DCT → шум → латентное горлышко. Выключай то, что не нужно.</p>
   </div>
 
   <div>
@@ -104,12 +111,14 @@ code{ background:#0a0c0d; padding:1px 6px; border-radius:5px; font-size:12px }
 <details>
   <summary>Как это работает и что проверять по-настоящему</summary>
   <ul>
-    <li><b>Даунскейл с микроповоротом и грубым кернелом.</b> Каждый пиксель результата — взвешенное среднее соседей, сетка сдвинута на долю градуса. Пространственная структура водяного знака перемешивается.</li>
-    <li><b>Апскейл обратно другим кернелом</b> (высокого качества). Обратной дороги к исходным пикселям нет: значение каждого пикселя получено заново.</li>
-    <li><b>DCT-переквантование 8×8.</b> ВЧ-коэффициенты округляются к крупной сетке — остатки высокочастотного сигнала обнуляются, при малом шаге это почти невидимо.</li>
-    <li><b>Независимый шум ±N в каждый канал.</b> Статистика младших битов — основа любой попиксельной стеганографии — перестаёт существовать.</li>
-    <li><b>JPEG-перекодирование</b> — финальное перемешивание. Заодно <b>срезаются все метаданные</b> (C2PA, EXIF, XMP): canvas их просто не переносит. Плашка «Made with AI» в X/Twitter ставится именно по C2PA-метаданным — она пропадает гарантированно.</li>
-    <li>Проверка метаданных: <code>contentcredentials.org/verify</code>. Проверка пиксельного SynthID: детектор DeepMind (по заявке) — гонять до/после. Локального SynthID-детектора не существует, поэтому честная гарантия по пикселям такая: сигнал не survived невозможен, если каждый пиксель заменён на значение, не зависящее от исходных младших битов.</li>
+    <li><b>Ресемпл-раундтрип</b> (даунскейл→апскейл, вверх→вниз или оба) с микроповоротом и перекосом: каждый пиксель — новое взвешенное среднее соседей, сетка съехала. Ломает привязку знака к пиксельной сетке.</li>
+    <li><b>WebP-проход</b>: перекодирование в другой трансформ-базис (VP8 вместо DCT-JPEG) — против знаков, живущих в частотном домене.</li>
+    <li><b>Постеризация + дизеринг Байера</b>: младшие биты каждого канала превращаются в управляемый шум.</li>
+    <li><b>DCT-переквантование 8×8</b>: ВЧ-коэффициенты к крупной сетке — остатки высокочастотного сигнала обнуляются.</li>
+    <li><b>Независимый шум ±N</b>: статистика младших битов перестаёт существовать.</li>
+    <li><b>Латентное горлышко TAESD</b>: картинка сжимается в латенты (в 48 раз), в латенты добавляется шум, картинка восстанавливается. Пиксельная структура физически не может пройти через горлышко нетронутой — это не статистика, а усечение данных. Веса ≈10 МБ, грузятся один раз.</li>
+    <li>Финальное кодирование (JPEG/WebP) добавляет своё перемешивание и <b>срезает все метаданные</b> — C2PA, EXIF, XMP. Плашка «Made with AI» в X/Twitter ставится по C2PA и пропадает гарантированно.</li>
+    <li>Проверка метаданных: <code>contentcredentials.org/verify</code>. Пиксельный SynthID проверяется только детектором DeepMind (по заявке) — локального чекера не существует.</li>
   </ul>
 </details>
 
@@ -130,6 +139,14 @@ function addNoise(data, amp){
   return true;
 }
 
+// Стандартный гауссовский шум (Бокс — Мюллер), для латентов TAESD.
+function gauss(){
+  let u = 0, v = 0;
+  while(u === 0) u = Math.random();
+  while(v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
 // Ортонормальная матрица DCT-II 8x8: T8[u*8+x] = a(u) * cos((2x+1)u*pi/16)
 const T8 = new Float64Array(64);
 {
@@ -143,29 +160,24 @@ const T8 = new Float64Array(64);
 }
 
 // Прямое/обратное 8x8-преобразование блока (row-major: block[x*8+y], x — строка).
-// Блок и tmp можно передавать переиспользуемые.
 function blockDCT(block, tmp, inv){
   if(!inv){
-    // tmp[u*8+y] = сумма по x T8[u][x] * block[x][y]
     for(let u = 0; u < 8; u++) for(let y = 0; y < 8; y++){
       let s = 0;
       for(let x = 0; x < 8; x++) s += T8[u*8 + x] * block[x*8 + y];
       tmp[u*8 + y] = s;
     }
-    // block[u*8+v] = сумма по y tmp[u][y] * T8[v][y]
     for(let u = 0; u < 8; u++) for(let v = 0; v < 8; v++){
       let s = 0;
       for(let y = 0; y < 8; y++) s += tmp[u*8 + y] * T8[v*8 + y];
       block[u*8 + v] = s;
     }
   } else {
-    // tmp[u*8+y] = сумма по v block[u][v] * T8[v][y]
     for(let u = 0; u < 8; u++) for(let y = 0; y < 8; y++){
       let s = 0;
       for(let v = 0; v < 8; v++) s += block[u*8 + v] * T8[v*8 + y];
       tmp[u*8 + y] = s;
     }
-    // block[x*8+y] = сумма по u T8[u][x] * tmp[u][y]
     for(let x = 0; x < 8; x++) for(let y = 0; y < 8; y++){
       let s = 0;
       for(let u = 0; u < 8; u++) s += T8[u*8 + x] * tmp[u*8 + y];
@@ -175,8 +187,7 @@ function blockDCT(block, tmp, inv){
 }
 
 // Переквантование ВЧ-коэффициентов DCT в блоках 8x8 по каналам RGB.
-// DC (i=0) не трогаем, AC округляем к сетке step: мелочь исчезает, контур живёт.
-// step=0 — выключено.
+// DC (i=0) не трогаем, AC округляем к сетке step. step=0 — выключено.
 function dctWipe(data, w, h, step){
   if(!step || step <= 0) return false;
   const block = new Float64Array(64);
@@ -185,7 +196,6 @@ function dctWipe(data, w, h, step){
   for(let ch = 0; ch < 3; ch++){
     for(let by = 0; by < bh; by++){
       for(let bx = 0; bx < bw; bx++){
-        // читаем блок с зажимом координат (replicate edge)
         for(let r = 0; r < 8; r++){
           const sy = Math.min(h - 1, by*8 + r);
           for(let c = 0; c < 8; c++){
@@ -213,6 +223,27 @@ function dctWipe(data, w, h, step){
   return true;
 }
 
+// Постеризация до bits бит на канал с упорядоченным дизерингом Байера 4x4.
+// Значения становятся кратными шагу, дизеринг прячет ступеньки:
+// младшие биты превращаются из несущего сигнала в структурированный шум.
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function posterizeDither(data, w, h, bits){
+  bits = Math.round(bits);
+  if(bits >= 8 || bits < 1) return false;
+  const step = 255 / ((1 << bits) - 1);
+  for(let y = 0; y < h; y++){
+    const row = (y & 3) * 4;
+    for(let x = 0; x < w; x++){
+      const t = (BAYER4[row + (x & 3)] + 0.5) / 16 - 0.5;
+      const i = (y*w + x) * 4;
+      for(let c = 0; c < 3; c++){
+        data[i + c] = Math.round(data[i + c] / step + t) * step;
+      }
+    }
+  }
+  return true;
+}
+
 function psnr(a, b){
   let se = 0;
   const n = Math.min(a.length, b.length);
@@ -232,56 +263,304 @@ function pctChanged(a, b){
 }
 // [/CORE]
 
-// ---------- пайплайн ----------
-// 1) даунскейл с микроповоротом и ГРУБОЙ интерполяцией — каждый пиксель пересобирается
-// 2) апскейл ДРУГИМ кернелом (высокое качество)
-// 3) DCT-переквантование  4) шум  → канвас готов, остаётся закодировать
-function processTo(bitmap, canvas, p){
-  const w = bitmap.width, h = bitmap.height;
+// ---------- стадии конвейера ----------
+// Порядок фиксированный, каждая стадия включается отдельно:
+// геометрия → WebP → постеризация → DCT → шум → латентное горлышко (TAESD).
+
+function mkCanvas(w, h){
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+// Матрица «поворот · неодинаковый масштаб · сдвиг-перекос» — M = R(ang)·diag(1+k, 1-0.7k)·shear(0.3k).
+// Возвращает [a, b, c, d] для ctx.transform и коэффициент запаса, чтобы углы не оголились.
+function warpMatrix(ang, warp){
+  const k = (warp || 0) / 100;
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  const sx = 1 + k, sy = 1 - 0.7*k, sh = 0.3*k;
+  // R·S·K в координатах canvas (a — x-компонента оси x, b — её y-компонента, и т.д.)
+  const a = ca*sx,           b = sa*sx;
+  const c = ca*sx*sh - sa*sy, d = sa*sx*sh + ca*sy;
+  const cover = 1 / (Math.max(0.999, Math.cos(ang)) * Math.sqrt(sx*sy));
+  return [a, b, c, d, cover];
+}
+
+function drawWarped(src, sw, sh, ang, warp){
+  const c = mkCanvas(sw, sh);
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'low'; // грубый кернел на даунскейле — сильнее перемешивает
+  ctx.fillStyle = '#7f7f7f'; ctx.fillRect(0, 0, sw, sh);
+  const [a, b, cc, d, cover] = warpMatrix(ang, warp);
+  ctx.setTransform(a, b, cc, d, sw/2, sh/2);
+  ctx.drawImage(src, -sw/2, -sh/2, sw, sh);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return c;
+}
+
+// Геометрия: раундтрип через другое разрешение. mode: down | up | both.
+// scale — на сколько сжимаем при даунскейле или растягиваем при апскейле (в %).
+function geometryPass(src, p){
+  const w = src.width, h = src.height;
   const ang = (p.rot || 0) * Math.PI / 180;
-  const cover = 1 / Math.max(0.999, Math.cos(ang)); // чтобы поворот не оставил углы
-  const sw = Math.max(16, Math.round(w * p.scale * cover));
-  const sh = Math.max(16, Math.round(h * p.scale * cover));
+  const steps = p.mode === 'up' ? ['up'] : p.mode === 'both' ? ['down', 'up'] : ['down'];
+  let cur = src;
+  for(const st of steps){
+    const k = st === 'up' ? 2 - p.scale/100 : p.scale/100;
+    const [, , , , cover] = warpMatrix(ang, p.warp);
+    const tw = Math.max(16, Math.round(w * k * cover));
+    const th = Math.max(16, Math.round(h * k * cover));
+    const warped = drawWarped(cur, tw, th, ang, p.warp);
+    const back = mkCanvas(w, h);
+    const bc = back.getContext('2d', { willReadFrequently: true });
+    bc.imageSmoothingEnabled = true;
+    bc.imageSmoothingQuality = 'high'; // апскейл другим кернелом — обратной дороги нет
+    bc.drawImage(warped, 0, 0, w, h);
+    cur = back;
+  }
+  return cur;
+}
 
-  const s = document.createElement('canvas');
-  s.width = sw; s.height = sh;
-  const sc = s.getContext('2d');
-  sc.imageSmoothingEnabled = true;
-  sc.imageSmoothingQuality = 'low'; // грубый кернел на даунскейле — сильнее перемешивает
-  sc.fillStyle = '#7f7f7f'; sc.fillRect(0, 0, sw, sh);
-  sc.translate(sw/2, sh/2);
-  sc.rotate(ang);
-  sc.drawImage(bitmap, -sw/2, -sh/2, sw, sh);
+// WebP-проход: перекодировать в lossy WebP и обратно (другой базис и квантование).
+async function webpPass(canvas, q){
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/webp', q/100));
+  if(!blob) return canvas; // браузер не умеет WebP — пропускаем
+  const bmp = await createImageBitmap(blob);
+  const out = mkCanvas(canvas.width, canvas.height);
+  const ctx = out.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bmp, 0, 0);
+  if(bmp.close) bmp.close();
+  return out;
+}
 
-  canvas.width = w; canvas.height = h;
-  const oc = canvas.getContext('2d', { willReadFrequently: true });
-  oc.imageSmoothingEnabled = true;
-  oc.imageSmoothingQuality = 'high';
-  oc.clearRect(0, 0, w, h);
-  oc.drawImage(s, 0, 0, w, h);
+// ---------- TAESD: латентное горлышко ----------
+// onnxruntime-web с CDN, веса лежат рядом (./model/). Энкодер → шум в латентах → декодер.
+// Нормализация входа не документирована в чужом экспорте — калибруем замером PSNR round-trip.
+const TAESD = { state: 'idle', ort: null, enc: null, dec: null, promise: null, norm: 0, roundtripPsnr: NaN };
 
-  const img = oc.getImageData(0, 0, w, h);
-  dctWipe(img.data, w, h, p.dct);
-  addNoise(img.data, p.noise);
-  oc.putImageData(img, 0, 0);
-  return img.data;
+async function ensureTaesd(){
+  if(TAESD.state === 'ready') return true;
+  if(TAESD.state === 'failed') return false;
+  if(TAESD.state === 'loading'){ await TAESD.promise; return TAESD.state === 'ready'; }
+  TAESD.state = 'loading';
+  TAESD.promise = (async () => {
+    try{
+      const ort = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.all.bundle.min.mjs');
+      if(!ort || !ort.env) throw new Error('onnxruntime-web не доступен (CDN недоступен?)');
+      ort.env.wasm.numThreads = 1; // нет crossOriginIsolated на Pages
+      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/';
+      // WASM-провайдер без вариантов: WebGPU в части сборок создаёт сессию, но виснет на инференсе,
+      // а TAESD на WASM и так быстрый (энкодер 64×64 ≈ 50 мс).
+      const opts = { executionProviders: ['wasm'] };
+      TAESD.ort = ort;
+      TAESD.enc = await ort.InferenceSession.create('./model/taesd.encoder.onnx', opts);
+      TAESD.dec = await ort.InferenceSession.create('./model/taesd.decoder.onnx', opts);
+      TAESD.ep = 'wasm';
+      TAESD.roundtripPsnr = await calibrateTaesd();
+      TAESD.state = 'ready';
+    }catch(e){
+      console.warn('TAESD load failed:', e);
+      TAESD.state = 'failed';
+    }
+  })();
+  await TAESD.promise;
+  return TAESD.state === 'ready';
+}
+
+async function calibrateTaesd(){
+  // пробуем [-1,1] и [0,1], что даст более честный round-trip на градиентной болванке
+  const S = 64;
+  const c = mkCanvas(S, S);
+  const g = c.getContext('2d', { willReadFrequently: true });
+  const grd = g.createLinearGradient(0, 0, S, S);
+  grd.addColorStop(0, '#38507a'); grd.addColorStop(1, '#c07a38');
+  g.fillStyle = grd; g.fillRect(0, 0, S, S);
+  g.fillStyle = '#d05050'; g.beginPath(); g.arc(S/2, S/2, S/4, 0, 7); g.fill();
+  const ref = g.getImageData(0, 0, S, S).data;
+  let best = { psnr: -1, norm: 2 };
+  for(const norm of [2, 1]){
+    TAESD.norm = norm;
+    try{
+      const out = await taesdRunRaw(c, 0);
+      const b = out.getContext('2d').getImageData(0, 0, S, S).data;
+      const p = psnr(ref, b);
+      if(p > best.psnr) best = { psnr: p, norm };
+    }catch(e){ /* пробуем следующий вариант */ }
+  }
+  return best.psnr;
+}
+
+async function taesdRunRaw(canvas, sigma){
+  const w = canvas.width, h = canvas.height;
+  const W8 = Math.ceil(w/8)*8, H8 = Math.ceil(h/8)*8, P = W8*H8;
+  const src = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+  const x = new Float32Array(3*P);
+  const n = TAESD.norm || 2;
+  for(let y = 0; y < H8; y++){
+    const sy = Math.min(h - 1, y);
+    for(let xx = 0; xx < W8; xx++){
+      const sx = Math.min(w - 1, xx);
+      const p = (sy*w + sx)*4, xi = y*W8 + xx;
+      if(n === 2){
+        x[xi]       = src[p]   /127.5 - 1;
+        x[P + xi]   = src[p+1] /127.5 - 1;
+        x[2*P + xi] = src[p+2] /127.5 - 1;
+      } else {
+        x[xi]       = src[p]   /255;
+        x[P + xi]   = src[p+1] /255;
+        x[2*P + xi] = src[p+2] /255;
+      }
+    }
+  }
+  const encOut = await TAESD.enc.run({ [TAESD.enc.inputNames[0]]: new TAESD.ort.Tensor('float32', x, [1, 3, H8, W8]) });
+  const lt = encOut[TAESD.enc.outputNames[0]];
+  const ld = Float32Array.from(lt.data);
+  if(sigma > 0){
+    // шум относительно реального разброса латентов, а не абстрактной единицы
+    let mean = 0, m2 = 0;
+    for(let i = 0; i < ld.length; i++){
+      const d = ld[i] - mean;
+      mean += d/(i+1);
+      m2 += d*(ld[i] - mean);
+    }
+    const std = Math.sqrt(m2/Math.max(1, ld.length)) || 1;
+    for(let i = 0; i < ld.length; i++) ld[i] += gauss() * sigma * std;
+  }
+  const decOut = await TAESD.dec.run({ [TAESD.dec.inputNames[0]]: new TAESD.ort.Tensor('float32', ld, lt.dims) });
+  const y = decOut[TAESD.dec.outputNames[0]].data;
+  const out = mkCanvas(w, h);
+  const octx = out.getContext('2d', { willReadFrequently: true });
+  const img = octx.createImageData(w, h);
+  const d = img.data;
+  for(let yy = 0; yy < h; yy++){
+    for(let xx = 0; xx < w; xx++){
+      const xi = yy*W8 + xx, p = (yy*w + xx)*4;
+      for(let c = 0; c < 3; c++){
+        const v = y[c*P + xi];
+        d[p + c] = n === 2 ? (v + 1)*127.5 : v*255;
+      }
+      d[p + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  return out;
+}
+
+// публичный вход: гарантирует загрузку рантайма.
+// Калибровка зовёт taesdRunRaw напрямую — иначе ensureTaesd ждёт сам себя и всё виснет.
+async function taesdPass(canvas, sigma){
+  if(!(await ensureTaesd())) throw new Error('TAESD не загрузился (нужен интернет для рантайма onnxruntime)');
+  return taesdRunRaw(canvas, sigma);
+}
+
+async function preloadTaesd(){
+  const el = document.getElementById('taesdStatus');
+  if(TAESD.state === 'ready'){
+    el.textContent = `готово · раундтрип горлышка сам по себе PSNR ${fmtPSNR(TAESD.roundtripPsnr)} · WASM`;
+    return true;
+  }
+  el.textContent = 'загружаю рантайм и веса (~10 МБ, один раз)…';
+  const ok = await ensureTaesd();
+  if(ok){
+    el.textContent = `готово · раундтрип горлышка PSNR ${fmtPSNR(TAESD.roundtripPsnr)} · WASM (на CPU секунды, это нормально)`;
+  } else {
+    el.textContent = 'не загрузилось: нужен интернет для onnxruntime-web и файлы ./model/*.onnx';
+  }
+  return ok;
+}
+
+// ---------- конфиг и реестр стадий ----------
+const STAGES = [
+  { id: 'geometry', name: 'Ресемпл-раундтрип', hint: 'каждый пиксель пересобирается из соседей, сетка съезжает',
+    params: [
+      { key: 'scale', name: 'масштаб', min: 50, max: 100, step: 1, def: 78, fmt: v => v + '%' },
+      { key: 'rot',   name: 'поворот', min: 0, max: 1, step: 0.05, def: 0.1, fmt: v => v + '°' },
+      { key: 'warp',  name: 'перекос', min: 0, max: 1, step: 0.05, def: 0.15, fmt: v => v + '%' },
+      { key: 'mode',  name: 'порядок', type: 'select',
+        options: [['down', 'вниз → вверх'], ['up', 'вверх → вниз'], ['both', 'оба раундтрипa']], def: 'down' },
+    ] },
+  { id: 'webp', name: 'WebP-проход', hint: 'перекодирование в другой трансформ-базис (VP8)',
+    params: [ { key: 'q', name: 'качество', min: 40, max: 95, step: 1, def: 75, fmt: v => v } ] },
+  { id: 'poster', name: 'Постеризация + дизеринг', hint: 'младшие биты → структурированный шум',
+    params: [ { key: 'bits', name: 'бит на канал', min: 4, max: 7, step: 1, def: 6, fmt: v => v } ] },
+  { id: 'dct', name: 'DCT-переквантование', hint: 'выжигает высокочастотные вложения',
+    params: [ { key: 'step', name: 'шаг', min: 1, max: 10, step: 1, def: 3, fmt: v => v } ] },
+  { id: 'noise', name: 'Шум', hint: 'ломает статистику младших битов',
+    params: [ { key: 'amp', name: 'амплитуда ±', min: 1, max: 5, step: 1, def: 2, fmt: v => v } ] },
+  { id: 'taesd', name: 'Латентное горлышко (TAESD)', hint: 'пиксели восстанавливаются из 48×-сжатых латентов',
+    params: [ { key: 'sigma', name: 'шум в латентах', min: 0, max: 0.3, step: 0.01, def: 0.06, fmt: v => 'σ ' + v } ] },
+];
+
+function defaultCfg(){
+  const cfg = {};
+  for(const st of STAGES){
+    cfg[st.id] = { on: false };
+    for(const p of st.params) cfg[st.id][p.key] = p.def;
+  }
+  cfg.geometry.on = true;
+  cfg.dct.on = true;
+  cfg.noise.on = true;
+  return cfg;
+}
+
+const PRESETS = {
+  gentle: { geometry: { on: true, scale: 92, rot: 0, warp: 0, mode: 'down' },
+            webp: { on: false, q: 75 }, poster: { on: false, bits: 6 },
+            dct: { on: false, step: 3 }, noise: { on: true, amp: 1 }, taesd: { on: false, sigma: 0.06 } },
+  normal: { geometry: { on: true, scale: 78, rot: 0.1, warp: 0.15, mode: 'down' },
+            webp: { on: false, q: 75 }, poster: { on: false, bits: 6 },
+            dct: { on: true, step: 3 }, noise: { on: true, amp: 2 }, taesd: { on: false, sigma: 0.06 } },
+  nuke:   { geometry: { on: true, scale: 50, rot: 0.35, warp: 0.6, mode: 'both' },
+            webp: { on: true, q: 72 }, poster: { on: false, bits: 6 },
+            dct: { on: true, step: 6 }, noise: { on: true, amp: 3 }, taesd: { on: false, sigma: 0.06 } },
+  ml:     { geometry: { on: false, scale: 78, rot: 0.1, warp: 0.15, mode: 'down' },
+            webp: { on: false, q: 75 }, poster: { on: false, bits: 6 },
+            dct: { on: false, step: 3 }, noise: { on: false, amp: 2 }, taesd: { on: true, sigma: 0.06 } },
+};
+
+let cfg = defaultCfg();
+
+// ---------- пайплайн ----------
+async function applyPipeline(src, outCanvas, config){
+  const w = src.width, h = src.height;
+  let cur;
+  if(config.geometry.on){
+    cur = geometryPass(src, config.geometry);
+  } else {
+    cur = mkCanvas(w, h);
+    const c0 = cur.getContext('2d');
+    c0.drawImage(src, 0, 0);
+  }
+  if(config.webp.on){
+    cur = await webpPass(cur, config.webp.q);
+  }
+  const ctx = cur.getContext('2d', { willReadFrequently: true });
+  const img = ctx.getImageData(0, 0, w, h);
+  let mutated = false;
+  if(config.poster.on) mutated = posterizeDither(img.data, w, h, config.poster.bits) || mutated;
+  if(config.dct.on)    mutated = dctWipe(img.data, w, h, config.dct.step) || mutated;
+  if(config.noise.on)  mutated = addNoise(img.data, config.noise.amp) || mutated;
+  if(mutated) ctx.putImageData(img, 0, 0);
+  if(config.taesd.on){
+    cur = await taesdPass(cur, config.taesd.sigma);
+  }
+  if(cur !== outCanvas){
+    outCanvas.width = cur.width; outCanvas.height = cur.height;
+    const oc = outCanvas.getContext('2d');
+    oc.imageSmoothingEnabled = true;
+    oc.imageSmoothingQuality = 'high';
+    oc.drawImage(cur, 0, 0);
+  }
+  return outCanvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, outCanvas.width, outCanvas.height).data;
 }
 
 // ---------- UI ----------
 const $ = s => document.querySelector(s);
 const drop = $('#drop'), fileInput = $('#file');
-const sliders = { scale: $('#scale'), rot: $('#rot'), noise: $('#noise'), dct: $('#dct'), q: $('#q') };
-const vals = { scale: $('#scaleV'), rot: $('#rotV'), noise: $('#noiseV'), dct: $('#dctV'), q: $('#qV') };
 const origCanvas = $('#orig'), outCanvas = $('#out');
-
-const PRESETS = {
-  gentle: { scale: 92, rot: 0,    noise: 1, dct: 0, q: 92 },
-  normal: { scale: 78, rot: 0.1,  noise: 2, dct: 3, q: 88 },
-  nuke:   { scale: 50, rot: 0.35, noise: 3, dct: 6, q: 78 },
-};
-
-let active = null; // { bitmap, origData, name, size }
-let timer = null;
 
 function fmtBytes(n){
   return n > 1048576 ? (n/1048576).toFixed(1) + ' МБ' : Math.round(n/1024) + ' КБ';
@@ -289,45 +568,108 @@ function fmtBytes(n){
 function fmtPSNR(p){ return p === Infinity ? '∞' : p.toFixed(1) + ' dB'; }
 function esc(s){ return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-function syncVals(){
-  for(const k in sliders){
-    vals[k].textContent = sliders[k].value;
+function buildStageUI(){
+  const box = $('#stages');
+  box.innerHTML = '';
+  for(const st of STAGES){
+    const fs = document.createElement('fieldset');
+    if(cfg[st.id].on) fs.classList.add('on');
+    const head = document.createElement('label');
+    head.className = 'stagehead';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = cfg[st.id].on;
+    cb.addEventListener('change', () => {
+      cfg[st.id].on = cb.checked;
+      fs.classList.toggle('on', cb.checked);
+      if(st.id === 'taesd' && cb.checked) preloadTaesd();
+      scheduleRun();
+    });
+    const nm = document.createElement('span');
+    nm.textContent = st.name;
+    head.append(cb, nm);
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = st.hint;
+    fs.append(head, hint);
+    for(const p of st.params){
+      const row = document.createElement('div');
+      row.className = 'param';
+      const lab = document.createElement('label');
+      lab.textContent = p.name;
+      let val = null;
+      if(p.fmt){
+        val = document.createElement('span');
+        val.className = 'val';
+        val.textContent = p.fmt(cfg[st.id][p.key]);
+        lab.append(val);
+      }
+      if(p.type === 'select'){
+        const sel = document.createElement('select');
+        for(const [v, name] of p.options){
+          const opt = document.createElement('option');
+          opt.value = v; opt.textContent = name;
+          sel.append(opt);
+        }
+        sel.value = cfg[st.id][p.key];
+        sel.addEventListener('change', () => { cfg[st.id][p.key] = sel.value; scheduleRun(); });
+        row.append(lab, sel);
+      } else {
+        const rng = document.createElement('input');
+        rng.type = 'range'; rng.min = p.min; rng.max = p.max; rng.step = p.step;
+        rng.value = cfg[st.id][p.key];
+        rng.addEventListener('input', () => {
+          cfg[st.id][p.key] = +rng.value;
+          val.textContent = p.fmt(rng.value);
+          scheduleRun();
+        });
+        row.append(lab, rng);
+      }
+      fs.append(row);
+    }
+    if(st.id === 'taesd'){
+      const status = document.createElement('div');
+      status.className = 'hint';
+      status.id = 'taesdStatus';
+      status.textContent = '≈10 МБ весов, грузятся один раз.';
+      fs.append(status);
+    }
+    box.append(fs);
   }
 }
-function getParams(){
-  return {
-    scale: sliders.scale.value / 100,
-    rot: +sliders.rot.value,
-    noise: +sliders.noise.value,
-    dct: +sliders.dct.value,
-    q: +sliders.q.value,
-  };
-}
-function applyPreset(p){
-  for(const k in p) sliders[k].value = p[k];
-  syncVals();
-  scheduleRun();
-}
+
 document.querySelectorAll('[data-preset]').forEach(b =>
-  b.addEventListener('click', () => applyPreset(PRESETS[b.dataset.preset])));
+  b.addEventListener('click', () => {
+    cfg = JSON.parse(JSON.stringify(PRESETS[b.dataset.preset]));
+    buildStageUI();
+    if(cfg.taesd.on) preloadTaesd();
+    scheduleRun();
+  }));
 
-for(const k in sliders) sliders[k].addEventListener('input', () => { syncVals(); scheduleRun(); });
-
+let timer = null, runToken = 0;
+let active = null; // { bitmap, origData, name, size }
 function scheduleRun(){
   clearTimeout(timer);
-  timer = setTimeout(run, 150);
+  timer = setTimeout(run, 200);
 }
 
-function run(){
+async function run(){
   if(!active) return;
+  const my = ++runToken;
   const t0 = performance.now();
-  const outData = processTo(active.bitmap, outCanvas, getParams());
+  let outData;
+  try{
+    outData = await applyPipeline(active.bitmap, outCanvas, cfg);
+  } catch(e){
+    $('#stats').innerHTML = `<span class="err">ошибка: ${esc(String(e && e.message || e))}</span>`;
+    return;
+  }
+  if(my !== runToken) return;
   const ms = performance.now() - t0;
-  const p10 = psnr(active.origData, outData);
+  const p = psnr(active.origData, outData);
   const changed = pctChanged(active.origData, outData);
   $('#stats').innerHTML =
     `Размер <b>${outCanvas.width}×${outCanvas.height}</b> · ` +
-    `PSNR <b>${fmtPSNR(p10)}</b> · ` +
+    `PSNR <b>${fmtPSNR(p)}</b> · ` +
     `пикселей изменено <b>${changed.toFixed(1)}%</b> · ` +
     `<b>${fmtBytes(active.size)}</b> → <b id="outSize">…</b> · за <b>${ms < 1 ? '<1' : Math.round(ms)} мс</b>`;
   $('#download').disabled = false;
@@ -335,8 +677,7 @@ function run(){
 }
 
 function exportBlob(cb){
-  const fmt = $('#fmt').value;
-  outCanvas.toBlob(b => cb(b), fmt, +sliders.q.value / 100);
+  outCanvas.toBlob(b => cb(b), $('#fmt').value, +$('#exq').value/100);
 }
 
 $('#download').addEventListener('click', () => {
@@ -400,25 +741,21 @@ async function batch(files){
     list.appendChild(item);
     try{
       const bm = await createImageBitmap(f);
-      // оригинал нужен только ради метрик
-      const o = document.createElement('canvas');
-      o.width = bm.width; o.height = bm.height;
+      const o = mkCanvas(bm.width, bm.height);
       const octx = o.getContext('2d', { willReadFrequently: true });
       octx.drawImage(bm, 0, 0);
       const origData = octx.getImageData(0, 0, o.width, o.height).data;
-
-      const c = document.createElement('canvas');
-      const outData = processTo(bm, c, getParams());
-      const fmt = $('#fmt').value;
-      const blob = await new Promise(r => c.toBlob(r, fmt, +sliders.q.value / 100));
+      const c = mkCanvas(bm.width, bm.height);
+      const outData = await applyPipeline(bm, c, cfg);
+      const blob = await new Promise(r => c.toBlob(r, $('#fmt').value, +$('#exq').value/100));
       const url = URL.createObjectURL(blob);
       const name = f.name.replace(/\.\w+$/, '') + '-clean.' + blob.type.split('/')[1];
-      item.innerHTML = `<span>${esc(f.name)} → <a href="${url}" download="${esc(name)}">скачать</a> ` +
-        `<small style="color:#8a929a">PSNR ${fmtPSNR(psnr(origData, outData))}</small></span>` +
+      item.innerHTML = `<span>${esc(f.name)} → <a href="${url}" download="${esc(name)}">скачать</a>` +
+        ` <small style="color:#8a929a">PSNR ${fmtPSNR(psnr(origData, outData))}</small></span>` +
         `<span>${fmtBytes(blob.size)}</span>`;
-      bm.close && bm.close();
+      if(bm.close) bm.close();
     } catch(err){
-      item.innerHTML = `<span>${esc(f.name)}</span><span class="err">ошибка: ${esc(String(err))}</span>`;
+      item.innerHTML = `<span>${esc(f.name)}</span><span class="err">ошибка: ${esc(String(err && err.message || err))}</span>`;
     }
   }
 }
@@ -439,8 +776,9 @@ window.addEventListener('paste', e => {
   if(e.clipboardData && e.clipboardData.files.length) handleFiles(e.clipboardData.files);
 });
 
-// стартовые настройки: штатный пресет
-applyPreset(PRESETS.normal);
+buildStageUI();
+$('#exqV').textContent = $('#exq').value;
+$('#exq').addEventListener('input', () => { $('#exqV').textContent = $('#exq').value; scheduleRun(); });
 
 // самотест для автоматизации: ?selftest генерирует синтетическую картинку и прогоняет пайплайн
 if(new URLSearchParams(location.search).has('selftest')){
