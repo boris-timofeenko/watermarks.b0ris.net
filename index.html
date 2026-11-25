@@ -3,12 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SynthID Killer — локальный санитайзер картинок</title>
+<title>SynthID Killer</title>
 <style>
 :root{ color-scheme: dark }
 *{ box-sizing:border-box }
 body{ margin:0 auto; max-width:1020px; font:14px/1.5 -apple-system,system-ui,"Segoe UI",sans-serif; background:#101214; color:#d8dce0; padding:0 16px 60px }
+.headrow{ display:flex; align-items:baseline; justify-content:space-between; gap:12px }
 h1{ font-size:18px; margin:28px 0 4px }
+#langToggle{ display:flex; gap:2px; border:1px solid #33393f; border-radius:8px; padding:2px }
+#langToggle button{ border:none; background:transparent; color:#8a929a; padding:3px 8px; font-size:12px; border-radius:6px }
+#langToggle button.on{ background:#22272b; color:#7ef0ae }
 .sub{ color:#8a929a; margin:0 0 20px; font-size:13px }
 #drop{ border:1.5px dashed #3a4148; border-radius:10px; padding:30px 20px; text-align:center; color:#8a929a; cursor:pointer; transition:border-color .15s,color .15s }
 #drop.over{ border-color:#5af78e; color:#5af78e }
@@ -60,65 +64,69 @@ code{ background:#0a0c0d; padding:1px 6px; border-radius:5px; font-size:12px }
 </head>
 <body>
 
-<h1>SynthID Killer</h1>
-<p class="sub">Локальная перезапись пикселей: сносит пиксельные водяные знаки и срезает все метаданные (C2PA / EXIF / XMP).
-Веса ничего не отправляют: всё считается в браузере. Стадии конвейера включаются и настраиваются по отдельности.</p>
+<div class="headrow">
+  <h1>SynthID Killer</h1>
+  <div id="langToggle">
+    <button id="langRu">RU</button><button id="langEn">EN</button>
+  </div>
+</div>
+<p class="sub" data-i18n="sub"></p>
 
-<div id="drop"><b>Перетащи картинку</b> или кликни, чтобы выбрать.<br>Ещё работает вставка из буфера (⌘V). Можно несколько сразу.</div>
+<div id="drop"><b data-i18n="drop1"></b><span data-i18n="drop2"></span></div>
 <input type="file" id="file" accept="image/*" multiple>
 
 <div class="grid">
   <div class="panel">
     <div class="presets">
-      <button data-preset="gentle">Бережно</button>
-      <button data-preset="normal">Штатный</button>
-      <button data-preset="nuke">Термоядерный</button>
-      <button data-preset="ml">ML-горлышко</button>
+      <button data-preset="gentle" data-i18n="presetGentle"></button>
+      <button data-preset="normal" data-i18n="presetNormal"></button>
+      <button data-preset="nuke" data-i18n="presetNuke"></button>
+      <button data-preset="ml" data-i18n="presetML"></button>
     </div>
     <div id="stages"></div>
-    <label class="inline">Формат на выходе</label>
+    <label class="inline" data-i18n="fmtLabel"></label>
     <select class="fmt" id="fmt">
-      <option value="image/jpeg">JPEG (рекомендуется)</option>
+      <option value="image/jpeg" data-i18n="fmtJpeg"></option>
       <option value="image/webp">WebP</option>
-      <option value="image/png">PNG (прозрачность сохранится)</option>
+      <option value="image/png" data-i18n="fmtPng"></option>
     </select>
-    <label class="inline">Качество финального кодирования <span class="val" id="exqV"></span></label>
+    <label class="inline" data-i18n="exqLabel"></label> <span class="val" id="exqV"></span>
     <input type="range" id="exq" min="60" max="100" step="1" value="88">
-    <p class="note">JPEG/WebP заливает прозрачность. Порядок стадий фиксированный: геометрия → WebP → постеризация → DCT → шум → латентное горлышко. Выключай то, что не нужно.</p>
+    <p class="note" data-i18n="note"></p>
   </div>
 
   <div>
     <div id="compare" hidden>
       <figure>
-        <figcaption>оригинал</figcaption>
+        <figcaption data-i18n="origCap"></figcaption>
         <canvas id="orig" class="view"></canvas>
       </figure>
       <figure>
-        <figcaption>после</figcaption>
+        <figcaption data-i18n="afterCap"></figcaption>
         <canvas id="out" class="view"></canvas>
       </figure>
     </div>
     <div class="loupes" hidden id="loupes">
-      <figure><figcaption>лупа оригинал ×8</figcaption><canvas id="loupeOrig" class="loupe" width="224" height="224"></canvas></figure>
-      <figure><figcaption>лупа после ×8</figcaption><canvas id="loupeOut" class="loupe" width="224" height="224"></canvas></figure>
+      <figure><figcaption data-i18n="loupeOrigCap"></figcaption><canvas id="loupeOrig" class="loupe" width="224" height="224"></canvas></figure>
+      <figure><figcaption data-i18n="loupeAfterCap"></figcaption><canvas id="loupeOut" class="loupe" width="224" height="224"></canvas></figure>
     </div>
     <div id="stats"></div>
-    <p style="margin-top:12px"><button class="primary" id="download" disabled>Скачать</button></p>
+    <p style="margin-top:12px"><button class="primary" id="download" disabled data-i18n="downloadBtn"></button></p>
     <div id="batch"></div>
   </div>
 </div>
 
 <details>
-  <summary>Как это работает и что проверять по-настоящему</summary>
+  <summary data-i18n="docsSummary"></summary>
   <ul>
-    <li><b>Ресемпл-раундтрип</b> (даунскейл→апскейл, вверх→вниз или оба) с микроповоротом и перекосом: каждый пиксель — новое взвешенное среднее соседей, сетка съехала. Ломает привязку знака к пиксельной сетке.</li>
-    <li><b>WebP-проход</b>: перекодирование в другой трансформ-базис (VP8 вместо DCT-JPEG) — против знаков, живущих в частотном домене.</li>
-    <li><b>Постеризация + дизеринг Байера</b>: младшие биты каждого канала превращаются в управляемый шум.</li>
-    <li><b>DCT-переквантование 8×8</b>: ВЧ-коэффициенты к крупной сетке — остатки высокочастотного сигнала обнуляются.</li>
-    <li><b>Независимый шум ±N</b>: статистика младших битов перестаёт существовать.</li>
-    <li><b>Латентное горлышко TAESD</b>: картинка сжимается в латенты (в 48 раз), в латенты добавляется шум, картинка восстанавливается. Пиксельная структура физически не может пройти через горлышко нетронутой — это не статистика, а усечение данных. Веса ≈10 МБ, грузятся один раз.</li>
-    <li>Финальное кодирование (JPEG/WebP) добавляет своё перемешивание и <b>срезает все метаданные</b> — C2PA, EXIF, XMP. Плашка «Made with AI» в X/Twitter ставится по C2PA и пропадает гарантированно.</li>
-    <li>Проверка метаданных: <code>contentcredentials.org/verify</code>. Пиксельный SynthID проверяется только детектором DeepMind (по заявке) — локального чекера не существует.</li>
+    <li data-i18n-html="docs1"></li>
+    <li data-i18n-html="docs2"></li>
+    <li data-i18n-html="docs3"></li>
+    <li data-i18n-html="docs4"></li>
+    <li data-i18n-html="docs5"></li>
+    <li data-i18n-html="docs6"></li>
+    <li data-i18n-html="docs7"></li>
+    <li data-i18n-html="docs8"></li>
   </ul>
 </details>
 
@@ -263,9 +271,91 @@ function pctChanged(a, b){
 }
 // [/CORE]
 
+// ---------- i18n ----------
+const I18N = {
+  ru: {
+    title: 'SynthID Killer — локальный санитайзер картинок',
+    sub: 'Локальная перезапись пикселей: сносит пиксельные водяные знаки и срезает все метаданные (C2PA / EXIF / XMP). Веса ничего не отправляют: всё считается в браузере. Стадии конвейера включаются и настраиваются по отдельности.',
+    drop1: 'Перетащи картинку',
+    drop2: ' или кликни, чтобы выбрать.<br>Ещё работает вставка из буфера (⌘V). Можно несколько сразу.',
+    presetGentle: 'Бережно', presetNormal: 'Штатный', presetNuke: 'Термоядерный', presetML: 'ML-горлышко',
+    fmtLabel: 'Формат на выходе',
+    fmtJpeg: 'JPEG (рекомендуется)',
+    fmtPng: 'PNG (прозрачность сохранится)',
+    exqLabel: 'Качество финального кодирования',
+    note: 'JPEG/WebP заливает прозрачность. Порядок стадий фиксированный: геометрия → WebP → постеризация → DCT → шум → латентное горлышко. Выключай то, что не нужно.',
+    origCap: 'оригинал', afterCap: 'после',
+    loupeOrigCap: 'лупа оригинал ×8', loupeAfterCap: 'лупа после ×8',
+    downloadBtn: 'Скачать',
+    docsSummary: 'Как это работает и что проверять по-настоящему',
+    docs1: '<b>Ресемпл-раундтрип</b> (даунскейл→апскейл, вверх→вниз или оба) с микроповоротом и перекосом: каждый пиксель — новое взвешенное среднее соседей, сетка съехала. Ломает привязку знака к пиксельной сетке.',
+    docs2: '<b>WebP-проход</b>: перекодирование в другой трансформ-базис (VP8 вместо DCT-JPEG) — против знаков, живущих в частотном домене.',
+    docs3: '<b>Постеризация + дизеринг Байера</b>: младшие биты каждого канала превращаются в управляемый шум.',
+    docs4: '<b>DCT-переквантование 8×8</b>: ВЧ-коэффициенты к крупной сетке — остатки высокочастотного сигнала обнуляются.',
+    docs5: '<b>Независимый шум ±N</b>: статистика младших битов перестаёт существовать.',
+    docs6: '<b>Латентное горлышко TAESD</b>: картинка сжимается в латенты (в 48 раз), в латенты добавляется шум, картинка восстанавливается. Пиксельная структура физически не может пройти через горлышко нетронутой — это не статистика, а усечение данных. Веса ≈10 МБ, грузятся один раз.',
+    docs7: 'Финальное кодирование (JPEG/WebP) добавляет своё перемешивание и <b>срезает все метаданные</b> — C2PA, EXIF, XMP. Плашка «Made with AI» в X/Twitter ставится по C2PA и пропадает гарантированно.',
+    docs8: 'Проверка метаданных: <code>contentcredentials.org/verify</code>. Пиксельный SynthID проверяется только детектором DeepMind (по заявке) — локального чекера не существует.',
+    statSize: 'Размер', statPsnr: 'PSNR', statChanged: 'пикселей изменено', statTime: 'за',
+    statMs: v => (v < 1 ? '<1' : Math.round(v)) + ' мс',
+    download: 'скачать',
+    errorPrefix: 'ошибка: ',
+    MB: 'МБ', KB: 'КБ',
+    taesdHintIdle: '≈10 МБ весов, грузятся один раз.',
+    taesdHintLoading: 'загружаю рантайм и веса (~10 МБ, один раз)…',
+    taesdHintReady: p => `готово · раундтрип горлышка PSNR ${p} · WASM`,
+    taesdHintFailed: 'не загрузилось: нужен интернет для onnxruntime-web и файлы ./model/*.onnx',
+    taesdHintReadyIdle: p => `готово · раундтрип горлышка сам по себе PSNR ${p} · WASM`,
+    taesdRuntimeError: 'TAESD не загрузился (нужен интернет для рантайма onnxruntime)',
+  },
+  en: {
+    title: 'SynthID Killer — local image sanitizer',
+    sub: 'Local pixel rewriting: wipes pixel-level watermarks and strips all metadata (C2PA / EXIF / XMP). Nothing is uploaded: everything runs in your browser. Pipeline stages toggle and tune independently.',
+    drop1: 'Drop an image',
+    drop2: ' or click to pick one.<br>Paste from the clipboard (⌘V) works too. Several at once is fine.',
+    presetGentle: 'Gentle', presetNormal: 'Standard', presetNuke: 'Nuclear', presetML: 'ML bottleneck',
+    fmtLabel: 'Output format',
+    fmtJpeg: 'JPEG (recommended)',
+    fmtPng: 'PNG (keeps transparency)',
+    exqLabel: 'Final encoding quality',
+    note: 'JPEG/WebP fills transparency. Stage order is fixed: geometry → WebP → posterize → DCT → noise → latent bottleneck. Switch off what you don\'t need.',
+    origCap: 'original', afterCap: 'after',
+    loupeOrigCap: 'original loupe ×8', loupeAfterCap: 'after loupe ×8',
+    downloadBtn: 'Download',
+    docsSummary: 'How it works and what to verify for real',
+    docs1: '<b>Resample round trip</b> (down→up, up→down, or both) with micro-rotation and warp: every pixel becomes a new weighted average of its neighbours, the sampling grid shifts. Breaks the watermark\'s grip on the pixel grid.',
+    docs2: '<b>WebP pass</b>: re-encode through a different transform basis (VP8 instead of DCT-JPEG) — against watermarks living in the frequency domain.',
+    docs3: '<b>Posterize + Bayer dither</b>: the low bits of each channel turn into controlled noise.',
+    docs4: '<b>DCT re-quantization 8×8</b>: high-frequency coefficients snap to a coarse grid — remnants of high-frequency payloads die out.',
+    docs5: '<b>Independent noise ±N</b>: the statistics of the low bits simply stop existing.',
+    docs6: '<b>TAESD latent bottleneck</b>: the image is squeezed into latents (48× smaller), noise is added to the latents, the image is rebuilt. Pixel-level structure physically cannot pass through the bottleneck untouched — that\'s not statistics, that\'s data loss. ~10 MB of weights, loaded once.',
+    docs7: 'Final encoding (JPEG/WebP) adds its own scrambling and <b>strips all metadata</b> — C2PA, EXIF, XMP. The "Made with AI" label on X/Twitter is driven by C2PA and disappears for good.',
+    docs8: 'Metadata check: <code>contentcredentials.org/verify</code>. Pixel-level SynthID can only be checked with the DeepMind detector (by application) — no local checker exists.',
+    statSize: 'Size', statPsnr: 'PSNR', statChanged: 'pixels changed', statTime: 'in',
+    statMs: v => (v < 1 ? '<1' : Math.round(v)) + ' ms',
+    download: 'download',
+    errorPrefix: 'error: ',
+    MB: 'MB', KB: 'KB',
+    taesdHintIdle: '≈10 MB of weights, loaded once.',
+    taesdHintLoading: 'loading the runtime and weights (~10 MB, once)…',
+    taesdHintReady: p => `ready · the bottleneck round trip alone is PSNR ${p} · WASM`,
+    taesdHintFailed: 'failed to load: needs internet for onnxruntime-web and the ./model/*.onnx files',
+    taesdHintReadyIdle: p => `ready · the bottleneck round trip alone is PSNR ${p} · WASM`,
+    taesdRuntimeError: 'TAESD failed to load (needs internet for the onnxruntime runtime)',
+  },
+};
+
+let lang = 'ru';
+function t(key){
+  return I18N[lang][key] !== undefined ? I18N[lang][key] : (I18N.ru[key] !== undefined ? I18N.ru[key] : key);
+}
+
 // ---------- стадии конвейера ----------
 // Порядок фиксированный, каждая стадия включается отдельно:
 // геометрия → WebP → постеризация → DCT → шум → латентное горлышко (TAESD).
+// Названия и подсказки хранятся парами {ru, en}.
+
+const L = (ru, en) => ({ ru, en });
 
 function mkCanvas(w, h){
   const c = document.createElement('canvas');
@@ -376,7 +466,7 @@ async function calibrateTaesd(){
   const c = mkCanvas(S, S);
   const g = c.getContext('2d', { willReadFrequently: true });
   const grd = g.createLinearGradient(0, 0, S, S);
-  grd.addColorStop(0, '#38507a'); grd.addColorStop(1, '#c07a38');
+  grd.addColorStop(0, '#38507a'); grd.addColorStop(1, '#7a5a3a');
   g.fillStyle = grd; g.fillRect(0, 0, S, S);
   g.fillStyle = '#d05050'; g.beginPath(); g.arc(S/2, S/2, S/4, 0, 7); g.fill();
   const ref = g.getImageData(0, 0, S, S).data;
@@ -452,46 +542,52 @@ async function taesdRunRaw(canvas, sigma){
 // публичный вход: гарантирует загрузку рантайма.
 // Калибровка зовёт taesdRunRaw напрямую — иначе ensureTaesd ждёт сам себя и всё виснет.
 async function taesdPass(canvas, sigma){
-  if(!(await ensureTaesd())) throw new Error('TAESD не загрузился (нужен интернет для рантайма onnxruntime)');
+  if(!(await ensureTaesd())) throw new Error(t('taesdRuntimeError'));
   return taesdRunRaw(canvas, sigma);
 }
 
 async function preloadTaesd(){
   const el = document.getElementById('taesdStatus');
   if(TAESD.state === 'ready'){
-    el.textContent = `готово · раундтрип горлышка сам по себе PSNR ${fmtPSNR(TAESD.roundtripPsnr)} · WASM`;
+    el.textContent = t('taesdHintReadyIdle')(fmtPSNR(TAESD.roundtripPsnr));
     return true;
   }
-  el.textContent = 'загружаю рантайм и веса (~10 МБ, один раз)…';
+  el.textContent = t('taesdHintLoading');
   const ok = await ensureTaesd();
   if(ok){
-    el.textContent = `готово · раундтрип горлышка PSNR ${fmtPSNR(TAESD.roundtripPsnr)} · WASM (на CPU секунды, это нормально)`;
+    el.textContent = t('taesdHintReady')(fmtPSNR(TAESD.roundtripPsnr));
   } else {
-    el.textContent = 'не загрузилось: нужен интернет для onnxruntime-web и файлы ./model/*.onnx';
+    el.textContent = t('taesdHintFailed');
   }
   return ok;
 }
 
 // ---------- конфиг и реестр стадий ----------
 const STAGES = [
-  { id: 'geometry', name: 'Ресемпл-раундтрип', hint: 'каждый пиксель пересобирается из соседей, сетка съезжает',
+  { id: 'geometry', name: L('Ресемпл-раундтрип', 'Resample round trip'),
+    hint: L('каждый пиксель пересобирается из соседей, сетка съезжает', 'every pixel is rebuilt from its neighbours, the sampling grid shifts'),
     params: [
-      { key: 'scale', name: 'масштаб', min: 50, max: 100, step: 1, def: 78, fmt: v => v + '%' },
-      { key: 'rot',   name: 'поворот', min: 0, max: 1, step: 0.05, def: 0.1, fmt: v => v + '°' },
-      { key: 'warp',  name: 'перекос', min: 0, max: 1, step: 0.05, def: 0.15, fmt: v => v + '%' },
-      { key: 'mode',  name: 'порядок', type: 'select',
-        options: [['down', 'вниз → вверх'], ['up', 'вверх → вниз'], ['both', 'оба раундтрипa']], def: 'down' },
+      { key: 'scale', name: L('масштаб', 'scale'), min: 50, max: 100, step: 1, def: 78, fmt: v => v + '%' },
+      { key: 'rot',   name: L('поворот', 'rotation'), min: 0, max: 1, step: 0.05, def: 0.1, fmt: v => v + '°' },
+      { key: 'warp',  name: L('перекос', 'warp'), min: 0, max: 1, step: 0.05, def: 0.15, fmt: v => v + '%' },
+      { key: 'mode',  name: L('порядок', 'order'), type: 'select',
+        options: [ ['down', L('вниз → вверх', 'down → up')], ['up', L('вверх → вниз', 'up → down')], ['both', L('оба раундтрипa', 'both')] ], def: 'down' },
     ] },
-  { id: 'webp', name: 'WebP-проход', hint: 'перекодирование в другой трансформ-базис (VP8)',
-    params: [ { key: 'q', name: 'качество', min: 40, max: 95, step: 1, def: 75, fmt: v => v } ] },
-  { id: 'poster', name: 'Постеризация + дизеринг', hint: 'младшие биты → структурированный шум',
-    params: [ { key: 'bits', name: 'бит на канал', min: 4, max: 7, step: 1, def: 6, fmt: v => v } ] },
-  { id: 'dct', name: 'DCT-переквантование', hint: 'выжигает высокочастотные вложения',
-    params: [ { key: 'step', name: 'шаг', min: 1, max: 10, step: 1, def: 3, fmt: v => v } ] },
-  { id: 'noise', name: 'Шум', hint: 'ломает статистику младших битов',
-    params: [ { key: 'amp', name: 'амплитуда ±', min: 1, max: 5, step: 1, def: 2, fmt: v => v } ] },
-  { id: 'taesd', name: 'Латентное горлышко (TAESD)', hint: 'пиксели восстанавливаются из 48×-сжатых латентов',
-    params: [ { key: 'sigma', name: 'шум в латентах', min: 0, max: 0.3, step: 0.01, def: 0.06, fmt: v => 'σ ' + v } ] },
+  { id: 'webp', name: L('WebP-проход', 'WebP pass'),
+    hint: L('перекодирование в другой трансформ-базис (VP8)', 're-encode through a different transform basis (VP8)'),
+    params: [ { key: 'q', name: L('качество', 'quality'), min: 40, max: 95, step: 1, def: 75, fmt: v => v } ] },
+  { id: 'poster', name: L('Постеризация + дизеринг', 'Posterize + dither'),
+    hint: L('младшие биты → структурированный шум', 'low bits → structured noise'),
+    params: [ { key: 'bits', name: L('бит на канал', 'bits per channel'), min: 4, max: 7, step: 1, def: 6, fmt: v => v } ] },
+  { id: 'dct', name: L('DCT-переквантование', 'DCT re-quantization'),
+    hint: L('выжигает высокочастотные вложения', 'burns out high-frequency payloads'),
+    params: [ { key: 'step', name: L('шаг', 'step'), min: 1, max: 10, step: 1, def: 3, fmt: v => v } ] },
+  { id: 'noise', name: L('Шум', 'Noise'),
+    hint: L('ломает статистику младших битов', 'destroys the statistics of the low bits'),
+    params: [ { key: 'amp', name: L('амплитуда ±', 'amplitude ±'), min: 1, max: 5, step: 1, def: 2, fmt: v => v } ] },
+  { id: 'taesd', name: L('Латентное горлышко (TAESD)', 'Latent bottleneck (TAESD)'),
+    hint: L('пиксели восстанавливаются из 48×-сжатых латентов', 'pixels are rebuilt from 48×-compressed latents'),
+    params: [ { key: 'sigma', name: L('шум в латентах', 'latent noise'), min: 0, max: 0.3, step: 0.01, def: 0.06, fmt: v => 'σ ' + v } ] },
 ];
 
 function defaultCfg(){
@@ -563,10 +659,31 @@ const drop = $('#drop'), fileInput = $('#file');
 const origCanvas = $('#orig'), outCanvas = $('#out');
 
 function fmtBytes(n){
-  return n > 1048576 ? (n/1048576).toFixed(1) + ' МБ' : Math.round(n/1024) + ' КБ';
+  return n > 1048576 ? (n/1048576).toFixed(1) + ' ' + t('MB') : Math.round(n/1024) + ' ' + t('KB');
 }
 function fmtPSNR(p){ return p === Infinity ? '∞' : p.toFixed(1) + ' dB'; }
 function esc(s){ return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function applyLang(l){
+  lang = l;
+  try{ localStorage.setItem('sk-lang', l); }catch(e){}
+  document.documentElement.lang = l;
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.getElementById('langRu').classList.toggle('on', l === 'ru');
+  document.getElementById('langEn').classList.toggle('on', l === 'en');
+  buildStageUI();
+  if(active) run();
+  else {
+    const el = document.getElementById('taesdStatus');
+    if(el && TAESD.state === 'ready') el.textContent = t('taesdHintReadyIdle')(fmtPSNR(TAESD.roundtripPsnr));
+  }
+}
 
 function buildStageUI(){
   const box = $('#stages');
@@ -585,17 +702,17 @@ function buildStageUI(){
       scheduleRun();
     });
     const nm = document.createElement('span');
-    nm.textContent = st.name;
+    nm.textContent = st.name[lang];
     head.append(cb, nm);
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = st.hint;
+    hint.textContent = st.hint[lang];
     fs.append(head, hint);
     for(const p of st.params){
       const row = document.createElement('div');
       row.className = 'param';
       const lab = document.createElement('label');
-      lab.textContent = p.name;
+      lab.textContent = p.name[lang];
       let val = null;
       if(p.fmt){
         val = document.createElement('span');
@@ -607,7 +724,7 @@ function buildStageUI(){
         const sel = document.createElement('select');
         for(const [v, name] of p.options){
           const opt = document.createElement('option');
-          opt.value = v; opt.textContent = name;
+          opt.value = v; opt.textContent = name[lang];
           sel.append(opt);
         }
         sel.value = cfg[st.id][p.key];
@@ -630,7 +747,7 @@ function buildStageUI(){
       const status = document.createElement('div');
       status.className = 'hint';
       status.id = 'taesdStatus';
-      status.textContent = '≈10 МБ весов, грузятся один раз.';
+      status.textContent = t('taesdHintIdle');
       fs.append(status);
     }
     box.append(fs);
@@ -660,7 +777,7 @@ async function run(){
   try{
     outData = await applyPipeline(active.bitmap, outCanvas, cfg);
   } catch(e){
-    $('#stats').innerHTML = `<span class="err">ошибка: ${esc(String(e && e.message || e))}</span>`;
+    $('#stats').innerHTML = `<span class="err">${esc(t('errorPrefix'))}${esc(String(e && e.message || e))}</span>`;
     return;
   }
   if(my !== runToken) return;
@@ -668,10 +785,11 @@ async function run(){
   const p = psnr(active.origData, outData);
   const changed = pctChanged(active.origData, outData);
   $('#stats').innerHTML =
-    `Размер <b>${outCanvas.width}×${outCanvas.height}</b> · ` +
-    `PSNR <b>${fmtPSNR(p)}</b> · ` +
-    `пикселей изменено <b>${changed.toFixed(1)}%</b> · ` +
-    `<b>${fmtBytes(active.size)}</b> → <b id="outSize">…</b> · за <b>${ms < 1 ? '<1' : Math.round(ms)} мс</b>`;
+    `${t('statSize')} <b>${outCanvas.width}×${outCanvas.height}</b> · ` +
+    `${t('statPsnr')} <b>${fmtPSNR(p)}</b> · ` +
+    `${t('statChanged')} <b>${changed.toFixed(1)}%</b> · ` +
+    `<b>${fmtBytes(active.size)}</b> → <b id="outSize">…</b> · ` +
+    `${t('statTime')} <b>${t('statMs')(ms)}</b>`;
   $('#download').disabled = false;
   exportBlob(b => { if(b) $('#outSize').textContent = fmtBytes(b.size); });
 }
@@ -750,12 +868,12 @@ async function batch(files){
       const blob = await new Promise(r => c.toBlob(r, $('#fmt').value, +$('#exq').value/100));
       const url = URL.createObjectURL(blob);
       const name = f.name.replace(/\.\w+$/, '') + '-clean.' + blob.type.split('/')[1];
-      item.innerHTML = `<span>${esc(f.name)} → <a href="${url}" download="${esc(name)}">скачать</a>` +
+      item.innerHTML = `<span>${esc(f.name)} → <a href="${url}" download="${esc(name)}">${t('download')}</a>` +
         ` <small style="color:#8a929a">PSNR ${fmtPSNR(psnr(origData, outData))}</small></span>` +
         `<span>${fmtBytes(blob.size)}</span>`;
       if(bm.close) bm.close();
     } catch(err){
-      item.innerHTML = `<span>${esc(f.name)}</span><span class="err">ошибка: ${esc(String(err && err.message || err))}</span>`;
+      item.innerHTML = `<span>${esc(f.name)}</span><span class="err">${esc(t('errorPrefix'))}${esc(String(err && err.message || err))}</span>`;
     }
   }
 }
@@ -779,6 +897,14 @@ window.addEventListener('paste', e => {
 buildStageUI();
 $('#exqV').textContent = $('#exq').value;
 $('#exq').addEventListener('input', () => { $('#exqV').textContent = $('#exq').value; scheduleRun(); });
+
+// язык: сохранённый, иначе по браузеру
+const savedLang = (() => {
+  try{ return localStorage.getItem('sk-lang'); }catch(e){ return null; }
+})();
+applyLang(savedLang === 'en' || savedLang === 'ru' ? savedLang : (navigator.language && navigator.language.startsWith('ru') ? 'ru' : 'en'));
+document.getElementById('langRu').addEventListener('click', () => applyLang('ru'));
+document.getElementById('langEn').addEventListener('click', () => applyLang('en'));
 
 // самотест для автоматизации: ?selftest генерирует синтетическую картинку и прогоняет пайплайн
 if(new URLSearchParams(location.search).has('selftest')){
